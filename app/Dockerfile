@@ -1,6 +1,6 @@
 # ---------- Build stage ----------
 # Python 3.11 to match the distroless debian12 runtime
-FROM python:3.11-slim AS build
+FROM python:3.13-slim-trixie AS build
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir --target=/app/deps -r requirements.txt
@@ -8,7 +8,7 @@ COPY main.py .
 
 # ---------- Runtime stage ----------
 # Distroless: no shell, no package manager, runs as non-root
-FROM gcr.io/distroless/python3-debian12:nonroot
+FROM gcr.io/distroless/python3-debian13:nonroot
 WORKDIR /app
 COPY --from=build /app /app
 ENV PYTHONPATH=/app/deps
