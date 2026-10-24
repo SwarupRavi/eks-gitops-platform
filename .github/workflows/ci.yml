@@ -6,7 +6,7 @@ on:
     paths: ["app/**"]
   pull_request:
     paths: ["app/**"]
-
+  workflow_dispatch: # lets you run it from the Actions tab
 env:
   AWS_REGION: ap-south-1
   ECR_REPOSITORY: eks-gitops-app
