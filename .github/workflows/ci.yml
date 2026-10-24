@@ -27,7 +27,7 @@ jobs:
       # Fail the build on CRITICAL/HIGH vulnerabilities that have a fix.
       # Pin to the latest release (or a commit SHA) from github.com/aquasecurity/trivy-action
       - name: Trivy scan
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: app:${{ github.sha }}
           severity: CRITICAL,HIGH
