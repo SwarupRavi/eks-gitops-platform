@@ -1,0 +1,3 @@
+# Copy to terraform.tfvars and edit
+region      = "ap-south-1"
+github_repo = "swarupravi/eks-gitops-platform"

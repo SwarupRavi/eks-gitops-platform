@@ -1,0 +1,21 @@
+# kubectl apply -f argocd/application.yaml   (after installing ArgoCD)
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: app
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/swarupravi/eks-gitops-platform.git # change to your repo
+    targetRevision: main
+    path: charts/app
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: app
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

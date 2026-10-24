@@ -1,0 +1,18 @@
+replicaCount: 2
+
+# CI rewrites repository and tag on every push to main
+image:
+  repository: REPLACE_WITH_ECR_URL
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+service:
+  port: 80
+  targetPort: 8080
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    memory: 128Mi

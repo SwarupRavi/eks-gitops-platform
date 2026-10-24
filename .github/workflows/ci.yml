@@ -1,0 +1,79 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+    paths: ["app/**"]
+  pull_request:
+    paths: ["app/**"]
+
+env:
+  AWS_REGION: ap-south-1
+  ECR_REPOSITORY: eks-gitops-app
+
+jobs:
+  build-scan-push:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write # needed for OIDC login to AWS
+      contents: write # needed to commit the new image tag
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build -t app:${{ github.sha }} app/
+
+      # Fail the build on CRITICAL/HIGH vulnerabilities that have a fix.
+      # Pin to the latest release (or a commit SHA) from github.com/aquasecurity/trivy-action
+      - name: Trivy scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: app:${{ github.sha }}
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "1"
+
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          image: app:${{ github.sha }}
+          format: spdx-json
+          output-file: sbom.spdx.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: sbom.spdx.json
+
+      # Everything below runs only on main, not on pull requests
+      - name: Configure AWS credentials (OIDC)
+        if: github.ref == 'refs/heads/main'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to ECR
+        if: github.ref == 'refs/heads/main'
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Push image
+        if: github.ref == 'refs/heads/main'
+        run: |
+          IMAGE=${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+          docker tag app:${{ github.sha }} $IMAGE
+          docker push $IMAGE
+
+      # GitOps: update the image tag in Git; ArgoCD sees the change and deploys it
+      - name: Update Helm image tag
+        if: github.ref == 'refs/heads/main'
+        run: |
+          sed -i "s|^  repository:.*|  repository: ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}|" charts/app/values.yaml
+          sed -i "s|^  tag:.*|  tag: \"${{ github.sha }}\"|" charts/app/values.yaml
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add charts/app/values.yaml
+          git commit -m "deploy: app ${{ github.sha }}"
+          git push
