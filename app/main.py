@@ -1,3 +1,12 @@
+import datetime
+@app.get("/stress/memory/<int:mb>")
+def stress_memory(mb):
+    # Test only: holds <mb> MB for 10 seconds (capped at 200)
+    mb = min(mb, 200)
+    data = b"x" * (mb * 1024 * 1024)
+    time.sleep(10)
+    return jsonify(allocated_mb=len(data) // (1024 * 1024))
+
 from flask import Flask, Response, jsonify
 from prometheus_client import CONTENT_TYPE_LATEST, Counter, generate_latest
 
