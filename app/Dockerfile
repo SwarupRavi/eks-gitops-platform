@@ -8,7 +8,7 @@ COPY main.py .
 
 # ---------- Runtime stage ----------
 # Distroless: no shell, no package manager, runs as non-root
-FROM gcr.io/distroless/python3-debian13:nonroot
+FROM gcr.io/distroless/python3-debian12:nonroot
 WORKDIR /app
 COPY --from=build /app /app
 ENV PYTHONPATH=/app/deps
