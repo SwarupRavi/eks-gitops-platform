@@ -3,7 +3,7 @@ replicaCount: 2
 # CI rewrites repository and tag on every push to main
 image:
   repository: 202928181899.dkr.ecr.ap-south-1.amazonaws.com/eks-gitops-app
-  tag: "8fa812866a75719b954b54a016b70835850816a7"
+  tag: "d236bd9e1de345ef480fba5b546a6b64f806b9a2"
   pullPolicy: IfNotPresent
 
 service:
