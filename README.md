@@ -119,7 +119,9 @@ The pod memory limit is 128Mi. The demo endpoint `/stress/memory/<mb>` allocates
 
 **Memory spike demo (screen recording):** requests to `/stress/memory/<mb>` push pod memory up in Grafana, then it drops back once the request finishes.
 
-VIDEO_HERE
+
+https://github.com/user-attachments/assets/31e6fda1-e77f-410b-97ee-ad98c1e2ab63
+
 
 **OOMKill:** one request to `/stress/memory/150` went over the 128Mi limit, and Kubernetes killed the container and restarted it. The second replica kept serving, so there was no downtime.
 
