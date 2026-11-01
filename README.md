@@ -63,7 +63,7 @@ flowchart LR
 | Layer | Tools |
 |---|---|
 | Infrastructure | Terraform (VPC, EKS, ECR, IAM), S3 remote state with native locking |
-| CI | GitHub Actions, Trivy (pinned to commit SHA), SBOM (SPDX), OIDC auth to AWS |
+| CI | GitHub Actions, Trivy image + IaC scanning (pinned to commit SHA), Semgrep SAST, gitleaks secret scanning, SBOM (SPDX), OIDC auth to AWS |
 | CD | Helm, ArgoCD (auto-sync, prune, self-heal) |
 | Monitoring | kube-prometheus-stack (Prometheus, Grafana, Alertmanager) |
 | Testing | k6 load testing, memory spike and OOMKill tests |
@@ -75,6 +75,9 @@ flowchart LR
 - **Hardened container.** Distroless base image (no shell or package manager), runs as non-root UID 65532, read-only root filesystem, all Linux capabilities dropped, seccomp `RuntimeDefault`.
 - **Private networking.** Worker nodes run in private subnets with no public IPs.
 - **Resource limits.** Memory limits stop one bad pod from taking down the node.
+- **Security scanning on every push and PR.** A separate `security.yml` workflow runs gitleaks (full Git history), Semgrep (SAST on `app/`) and Trivy IaC (Terraform, Helm, Dockerfile). All three must pass before merging.
+- **Encrypted, logged infrastructure.** Terraform state is encrypted with a customer-managed KMS key with automatic rotation. All five EKS control plane log types and VPC Flow Logs are enabled.
+- **Restricted cluster API.** The EKS API endpoint only accepts connections from an allow-listed IP, set in the git-ignored `terraform.tfvars`.
 
 ## Results
 
@@ -125,6 +128,20 @@ https://github.com/user-attachments/assets/31e6fda1-e77f-410b-97ee-ad98c1e2ab63
 
 **OOMKill:** one request to `/stress/memory/150` went over the 128Mi limit, and Kubernetes killed the container and restarted it. The second replica kept serving, so there was no downtime.
 
+### 5. Security scanning
+
+All three scans pass on every pull request.
+
+![Security checks passing](docs/images/security-checks.png)
+
+The first Trivy IaC scan found **12 issues** across Terraform, Helm and the Dockerfile:
+
+| Result | Findings |
+| --- | --- |
+| **Fixed (5)** | EKS controllerManager and scheduler logs off · no VPC Flow Logs · Terraform state not using a customer-managed KMS key · Deployment had no explicit namespace · EKS API open to 0.0.0.0/0 (now one IP) |
+| **Accepted (7)** | Public EKS endpoint (restricted to one IP) · node egress to any IP (needed for ECR, GitHub, AWS APIs) · no state bucket access logging · ECR default encryption · Trivy still flags the single-IP CIDR · no CPU limit (avoids throttling) · no Dockerfile HEALTHCHECK (distroless has no shell; Kubernetes uses probes) |
+
+Accepted findings are listed in `.trivyignore`. Semgrep: 0 findings (296 rules). gitleaks: 0 leaks in 17 commits.
 ```
 $ kubectl get pods -n app
 NAME                  READY   STATUS    RESTARTS      AGE
@@ -152,7 +169,8 @@ Exit code 137 = 128 + 9 (SIGKILL). The kernel kills the process immediately, so 
 | `CreateContainerConfigError` | `runAsNonRoot` can't verify a non-numeric user | Set `runAsUser: 65532` |
 | ArgoCD install fails: annotation too long | ApplicationSet CRD exceeds the client-side apply annotation limit | `kubectl apply --server-side --force-conflicts` |
 | `CrashLoopBackOff`, `NameError: app` | Route defined before the Flask app | Reordered `main.py`; CI and ArgoCD rolled out the fix |
-
+| Trivy still flagged the EKS API after restricting it to my IP | The check fails on any public CIDR, even a single `/32` | Accepted with a written reason in `.trivyignore`; production would use a private endpoint |
+| `{{ .Release.Namespace }}` didn't clear the namespace finding | Trivy renders Helm charts with the `default` namespace | Set `namespace: app` explicitly to match Argo CD's destination |
 ## Repo layout
 ```
 app/                 Flask app, Dockerfile (distroless, non-root)
@@ -160,8 +178,10 @@ charts/app/          Helm chart (Deployment, Service, values)
 argocd/              ArgoCD Application (auto-sync, self-heal)
 terraform/           VPC, EKS, ECR, GitHub OIDC role
 terraform/bootstrap/ S3 bucket for Terraform state
-.github/workflows/   CI: build, scan, SBOM, push, update image tag
+.github/workflows/   CI: build, scan, SBOM, push, update image tag; security scans
+.trivyignore         Accepted IaC findings, each with a reason
 docs/images/         Screenshots
+
 ```
 
 ## Setup
