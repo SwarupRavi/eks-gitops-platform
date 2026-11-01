@@ -39,7 +39,16 @@ resource "aws_s3_bucket_versioning" "tfstate" {
     status = "Enabled"
   }
 }
-
+resource "aws_s3_bucket_server_side_encryption_configuration" "tfstate" {
+  bucket = aws_s3_bucket.tfstate.id
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm     = "aws:kms"
+      kms_master_key_id = aws_kms_key.tfstate.arn     # NEW: below line 47
+    }
+    bucket_key_enabled = true                         # NEW: after the closing } on line 48
+  }
+}
 resource "aws_s3_bucket_server_side_encryption_configuration" "tfstate" {
   bucket = aws_s3_bucket.tfstate.id
   rule {

@@ -33,3 +33,8 @@ variable "github_repo" {
   description = "GitHub repo allowed to push images, in owner/name form, e.g. swarupravi/eks-gitops-platform"
   type        = string
 }
+
+variable "admin_cidrs" {
+  description = "IP ranges allowed to reach the EKS API (your IP/32)"
+  type        = list(string)
+}
