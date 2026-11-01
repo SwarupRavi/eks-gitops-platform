@@ -22,6 +22,11 @@ module "vpc" {
   single_nat_gateway   = true # one NAT gateway to keep cost down
   enable_dns_hostnames = true
 
+  # VPC Flow Logs (fixes AWS-0178)
+  enable_flow_log                      = true
+  create_flow_log_cloudwatch_log_group = true
+  create_flow_log_cloudwatch_iam_role  = true
+  flow_log_max_aggregation_interval    = 60
   # Tags the AWS Load Balancer Controller uses to find subnets
   public_subnet_tags = {
     "kubernetes.io/role/elb" = 1
@@ -35,7 +40,8 @@ module "vpc" {
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
   version = "~> 20.0"
-
+  cluster_endpoint_public_access_cidrs = var.admin_cidrs
+  cluster_enabled_log_types                = ["api", "audit", "authenticator", "controllerManager", "scheduler"]  # fixes AWS-0038
   cluster_name    = var.cluster_name
   cluster_version = var.cluster_version
 
